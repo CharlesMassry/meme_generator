@@ -20,14 +20,14 @@ import (
 
 const PORT int = 8080
 
-var fontfile string = "./impact.ttf"
+var font *truetype.Font = loadFont("./impact.ttf")
+
+var TEMPLATES = map[string]*image.RGBA{
+	"roll_safe":     loadImage("roll_safe"),
+	"scumbag_steve": loadImage("scumbag_steve"),
+}
 
 func main() {
-	var TEMPLATES = map[string]*image.RGBA{
-		"roll_safe":     loadImage("roll_safe"),
-		"scumbag_steve": loadImage("scumbag_steve"),
-	}
-
 	http.HandleFunc("/favicon.ico", func(w http.ResponseWriter, req *http.Request) {
 		w.WriteHeader(http.StatusNotFound)
 	})
@@ -102,7 +102,7 @@ func addLabel(img *image.RGBA, position string, label string) {
 	}
 	size := 28.0 // font size in pixels
 	context := freetype.NewContext()
-	context.SetFont(loadFont())
+	context.SetFont(font)
 	context.SetFontSize((size))
 	context.SetDst(img)
 	pt := freetype.Pt(x, y+int(context.PointToFixed(size)>>6))
@@ -113,7 +113,7 @@ func addLabel(img *image.RGBA, position string, label string) {
 	}
 }
 
-func loadFont() *truetype.Font {
+func loadFont(fontfile string) *truetype.Font {
 	fontBytes, err := ioutil.ReadFile(fontfile)
 	if err != nil {
 		panic("error reading the font file")
