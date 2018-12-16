@@ -20,14 +20,14 @@ import (
 
 const PORT int = 8080
 
-var TEMPLATES = map[string]bool{
-	"roll_safe":     true,
-	"scumbag_steve": true,
-}
-
 var fontfile string = "./impact.ttf"
 
 func main() {
+	var TEMPLATES = map[string]*image.RGBA{
+		"roll_safe":     loadImage("roll_safe"),
+		"scumbag_steve": loadImage("scumbag_steve"),
+	}
+
 	http.HandleFunc("/favicon.ico", func(w http.ResponseWriter, req *http.Request) {
 		w.WriteHeader(http.StatusNotFound)
 	})
@@ -39,8 +39,9 @@ func main() {
 
 		name := strings.TrimPrefix(req.URL.Path, "/")
 		topText, bottomText := getText(req)
+		templateImage := TEMPLATES[name]
 
-		if !TEMPLATES[name] && topText == "" && bottomText == "" {
+		if templateImage != nil && topText == "" && bottomText == "" {
 			handleNotFound(reqID, req.URL.String(), w)
 			return
 		}
@@ -48,26 +49,19 @@ func main() {
 		log.Println(reqID, "Top Text:", topText, "Bottom Text:", bottomText)
 		log.Println(reqID, name)
 
-		templateImage := loadImage(name)
-		// font := loadFont()
-		// addLabel(templateImage, 100, 100, topText)
 		addLabel(templateImage, "top", topText)
 		addLabel(templateImage, "bottom", bottomText)
 
-		jpegOptions := jpeg.Options{Quality: 90}
-		jpeg.Encode(something, templateImage, jpegOptions)
+		jpegOptions := jpeg.Options{Quality: 65}
+		var jpgBuffer bytes.Buffer
+		jpeg.Encode(&jpgBuffer, templateImage, &jpegOptions)
 
-		imageBuffer := getImageBuffer(templateImage)
-		memeLength := len(imageBuffer.Bytes())
+		memeLength := len(jpgBuffer.Bytes())
 
 		log.Println(reqID, "Generated Meme, length:", memeLength)
 		w.Header().Set("Content-Type", "image/jpeg")
 		w.Header().Set("Content-Length", strconv.Itoa(memeLength))
-
-		_, err = w.Write(imageBuffer.Bytes())
-		if err != nil {
-			log.Println("unable to write image.")
-		}
+		w.Write(jpgBuffer.Bytes())
 	})
 	log.Println("Listening on Port ", strconv.Itoa(PORT))
 	log.Fatal(http.ListenAndServe(":"+strconv.Itoa(PORT), nil))
@@ -106,15 +100,16 @@ func addLabel(img *image.RGBA, position string, label string) {
 	default:
 		panic("add Label function called without valid position")
 	}
-
+	size := 28.0 // font size in pixels
 	context := freetype.NewContext()
+	context.SetFont(loadFont())
+	context.SetFontSize((size))
 	context.SetDst(img)
-	size := 12.0 // font size in pixels
 	pt := freetype.Pt(x, y+int(context.PointToFixed(size)>>6))
 
 	_, err := context.DrawString(label, pt)
 	if err != nil {
-		panic("drawing didn't work")
+		panic(err)
 	}
 }
 
