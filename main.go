@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"flag"
 	"image"
 	"image/draw"
 	"image/jpeg"
@@ -14,20 +15,36 @@ import (
 
 	"github.com/golang/freetype"
 	"github.com/golang/freetype/truetype"
-
 	"github.com/satori/go.uuid"
+	"golang.org/x/image/font"
+	"golang.org/x/image/math/fixed"
 )
 
-const PORT int = 8080
+var PORT = *flag.Int("port", 3001, "port to serve app on")
 
-var font *truetype.Font = loadFont("./impact.ttf")
-
-var TEMPLATES = map[string]*image.RGBA{
-	"roll_safe":     loadImage("roll_safe"),
-	"scumbag_steve": loadImage("scumbag_steve"),
-}
+var fontFile = loadFont("./font.ttf")
 
 func main() {
+	var TEMPLATES = map[string]bool{}
+
+	files, err := ioutil.ReadDir("./memes")
+
+	if err != nil {
+		panic("couldn't read dir memes")
+	}
+
+	for _, fileInfo := range files {
+		filename := fileInfo.Name()
+		if strings.HasSuffix(filename, ".jpg") {
+			memename := strings.TrimSuffix(filename, ".jpg")
+			TEMPLATES[memename] = true
+		}
+	}
+
+	if len(TEMPLATES) == 0 {
+		panic("can't start server with no meme templates")
+	}
+
 	http.HandleFunc("/favicon.ico", func(w http.ResponseWriter, req *http.Request) {
 		w.WriteHeader(http.StatusNotFound)
 	})
@@ -39,9 +56,9 @@ func main() {
 
 		name := strings.TrimPrefix(req.URL.Path, "/")
 		topText, bottomText := getText(req)
-		templateImage := TEMPLATES[name]
+		templateImage := loadImage(name)
 
-		if templateImage != nil && topText == "" && bottomText == "" {
+		if templateImage != nil && (topText == "" || bottomText == "") {
 			handleNotFound(reqID, req.URL.String(), w)
 			return
 		}
@@ -49,26 +66,28 @@ func main() {
 		log.Println(reqID, "Top Text:", topText, "Bottom Text:", bottomText)
 		log.Println(reqID, name)
 
-		addLabel(templateImage, "top", topText)
-		addLabel(templateImage, "bottom", bottomText)
+		go drawMemeText(templateImage, "top", topText)
+		go drawMemeText(templateImage, "bottom", bottomText)
 
 		jpegOptions := jpeg.Options{Quality: 65}
 		var jpgBuffer bytes.Buffer
 		jpeg.Encode(&jpgBuffer, templateImage, &jpegOptions)
 
-		memeLength := len(jpgBuffer.Bytes())
+		jpgBytes := jpgBuffer.Bytes()
+
+		memeLength := len(jpgBytes)
 
 		log.Println(reqID, "Generated Meme, length:", memeLength)
 		w.Header().Set("Content-Type", "image/jpeg")
 		w.Header().Set("Content-Length", strconv.Itoa(memeLength))
-		w.Write(jpgBuffer.Bytes())
+		w.Write(jpgBytes)
 	})
 	log.Println("Listening on Port ", strconv.Itoa(PORT))
 	log.Fatal(http.ListenAndServe(":"+strconv.Itoa(PORT), nil))
 }
 
 func loadImage(name string) *image.RGBA {
-	imageTemplateFile, err := os.Open("./" + name + ".jpg")
+	imageTemplateFile, err := os.Open("./memes/" + name + ".jpg")
 	defer imageTemplateFile.Close()
 	if err != nil {
 		panic("error loading image")
@@ -88,29 +107,36 @@ func loadImage(name string) *image.RGBA {
 	return rgbaImage
 }
 
-func addLabel(img *image.RGBA, position string, label string) {
+func drawMemeText(img *image.RGBA, position string, text string) {
 	var x, y int
 	switch position {
 	case "top":
-		x = 100
-		y = 100
+		x, y = 100, 50
 	case "bottom":
-		x = 100
-		y = 600
+		x, y = 100, 300
 	default:
 		panic("add Label function called without valid position")
 	}
-	size := 28.0 // font size in pixels
-	context := freetype.NewContext()
-	context.SetFont(font)
-	context.SetFontSize((size))
-	context.SetDst(img)
-	pt := freetype.Pt(x, y+int(context.PointToFixed(size)>>6))
 
-	_, err := context.DrawString(label, pt)
-	if err != nil {
-		panic(err)
+	foreground := image.White
+
+	size := 32.0
+	dpi := 72.0
+	h := font.HintingNone
+
+	drawer := &font.Drawer{
+		Dst: img,
+		Src: foreground,
+		Face: truetype.NewFace(fontFile, &truetype.Options{
+			Size:    size,
+			DPI:     dpi,
+			Hinting: h,
+		}),
 	}
+
+	drawer.Dot = fixed.P(x, y)
+
+	drawer.DrawString(text)
 }
 
 func loadFont(fontfile string) *truetype.Font {
@@ -126,16 +152,6 @@ func loadFont(fontfile string) *truetype.Font {
 	}
 
 	return font
-}
-
-func getImageBuffer(jpgImage image.Image) *bytes.Buffer {
-	imageBuffer := new(bytes.Buffer)
-	err := jpeg.Encode(imageBuffer, jpgImage, nil)
-	if err != nil {
-		panic("unable to encode template")
-	}
-
-	return imageBuffer
 }
 
 func handleNotFound(reqID uuid.UUID, url string, w http.ResponseWriter) {
