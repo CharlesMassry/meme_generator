@@ -54,6 +54,8 @@ func main() {
 			panic("error creating uuid")
 		}
 
+		log.Println(reqID, req.RemoteAddr)
+
 		name := strings.TrimPrefix(req.URL.Path, "/")
 		topText, bottomText := getText(req)
 		templateImage := loadImage(name)
