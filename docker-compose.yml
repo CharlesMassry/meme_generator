@@ -1,0 +1,7 @@
+version: '3.3'
+services:
+  web:
+    build: .
+    command: ./main
+    ports:
+      - "3000:3001"
