@@ -7,6 +7,7 @@ import (
 	"image/jpeg"
 	"io/ioutil"
 	"log"
+	"math"
 	"net/http"
 	"os"
 	"strconv"
@@ -160,7 +161,14 @@ func drawMemeText(img *image.RGBA, position string, text string) {
 
 	metrics := face.Metrics()
 
-	x := (img.Bounds().Max.X - textBounds) / 2
+	imageWidth := img.Bounds().Max.X
+
+	if imageWidth < textBounds {
+		splitLines(imageWidth, textBounds, text)
+
+	}
+
+	x := (imageWidth - textBounds) / 2
 
 	var y int
 	switch position {
@@ -181,6 +189,18 @@ func drawMemeText(img *image.RGBA, position string, text string) {
 	drawer.Dot = fixed.P(x, y)
 
 	drawer.DrawString(text)
+}
+
+func splitLines(imageWidth int, textLength int, text string) []string {
+	words := strings.Split(text, " ")
+
+	amount := int(math.Ceil(float64(imageWidth) / float64(textLength)))
+
+	len(words) / amount
+
+	var lines []string
+
+	return lines
 }
 
 func loadFont(fontfile string) *truetype.Font {
