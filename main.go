@@ -2,7 +2,6 @@ package main
 
 import (
 	"bytes"
-	"flag"
 	"image"
 	"image/draw"
 	"image/jpeg"
@@ -23,9 +22,7 @@ import (
 var fontFile = loadFont("./font.ttf")
 
 func main() {
-	var PORT = flag.Int("PORT", 3001, "port to serve app on")
-
-	flag.Parse()
+	var PORT = os.Getenv("PORT")
 
 	var TEMPLATES = map[string]bool{}
 
@@ -86,8 +83,8 @@ func main() {
 		w.Header().Set("Content-Length", strconv.Itoa(memeLength))
 		w.Write(jpgBytes)
 	})
-	log.Println("Listening on Port", strconv.Itoa(*PORT))
-	log.Fatal(http.ListenAndServe(":"+strconv.Itoa(*PORT), nil))
+	log.Println("Listening on Port", PORT)
+	log.Fatal(http.ListenAndServe(":"+PORT, nil))
 }
 
 func loadImage(name string) *image.RGBA {

@@ -8,4 +8,4 @@ RUN go get github.com/satori/go.uuid
 WORKDIR /go/src/github.com/CharlesMassry/meme_generator
 RUN go build -o main
 
-CMD ["./main", "-PORT", "`$PORT`"]
+CMD ["./main"]
