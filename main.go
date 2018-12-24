@@ -20,11 +20,13 @@ import (
 	"golang.org/x/image/math/fixed"
 )
 
-var PORT = *flag.Int("port", 3001, "port to serve app on")
-
 var fontFile = loadFont("./font.ttf")
 
 func main() {
+	var PORT = flag.Int("PORT", 3001, "port to serve app on")
+
+	flag.Parse()
+
 	var TEMPLATES = map[string]bool{}
 
 	files, err := ioutil.ReadDir("./memes")
@@ -84,8 +86,8 @@ func main() {
 		w.Header().Set("Content-Length", strconv.Itoa(memeLength))
 		w.Write(jpgBytes)
 	})
-	log.Println("Listening on Port", strconv.Itoa(PORT))
-	log.Fatal(http.ListenAndServe(":"+strconv.Itoa(PORT), nil))
+	log.Println("Listening on Port", strconv.Itoa(*PORT))
+	log.Fatal(http.ListenAndServe(":"+strconv.Itoa(*PORT), nil))
 }
 
 func loadImage(name string) *image.RGBA {
