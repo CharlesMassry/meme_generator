@@ -3,7 +3,6 @@ package main
 import (
 	"bytes"
 	"flag"
-	"fmt"
 	"image"
 	"image/draw"
 	"image/jpeg"
@@ -133,8 +132,6 @@ func drawMemeText(img *image.RGBA, position string, text string) {
 	}
 
 	metrics := face.Metrics()
-
-	fmt.Println(textBounds)
 
 	x := (img.Bounds().Max.X - textBounds) / 2
 
