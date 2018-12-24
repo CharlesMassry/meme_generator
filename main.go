@@ -14,7 +14,7 @@ import (
 
 	"github.com/golang/freetype"
 	"github.com/golang/freetype/truetype"
-	"github.com/satori/go.uuid"
+	uuid "github.com/satori/go.uuid"
 	"golang.org/x/image/font"
 	"golang.org/x/image/math/fixed"
 )
@@ -57,12 +57,14 @@ func main() {
 
 		name := strings.TrimPrefix(req.URL.Path, "/")
 		topText, bottomText := getText(req)
-		templateImage := loadImage(name)
+		_, ok := TEMPLATES[name]
 
-		if templateImage != nil && (topText == "" || bottomText == "") {
-			handleNotFound(reqID, req.URL.String(), w)
+		if ok == false && (topText == "" || bottomText == "") {
+			handleNotFound(reqID, req.URL.String(), TEMPLATES, w)
 			return
 		}
+
+		templateImage := loadImage(name)
 
 		log.Println(reqID, "Top Text:", topText, "Bottom Text:", bottomText)
 		log.Println(reqID, name)
@@ -172,10 +174,16 @@ func loadFont(fontfile string) *truetype.Font {
 	return font
 }
 
-func handleNotFound(reqID uuid.UUID, url string, w http.ResponseWriter) {
+func handleNotFound(reqID uuid.UUID, url string, templateNames map[string]bool, w http.ResponseWriter) {
 	log.Println(reqID, "404", url)
 	w.WriteHeader(http.StatusNotFound)
-	w.Write([]byte("404 not found"))
+	responseString := "Valid Template Names:\n"
+
+	for templateName := range templateNames {
+		responseString += templateName + "\n"
+	}
+
+	w.Write([]byte(responseString))
 }
 
 func getText(req *http.Request) (string, string) {
