@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"flag"
+	"fmt"
 	"image"
 	"image/draw"
 	"image/jpeg"
@@ -108,30 +109,49 @@ func loadImage(name string) *image.RGBA {
 }
 
 func drawMemeText(img *image.RGBA, position string, text string) {
-	var x, y int
+	offset := 75
+	size := 42.0
+	dpi := 72.0
+
+	foreground := image.White
+
+	h := font.HintingNone
+
+	face := truetype.NewFace(fontFile, &truetype.Options{
+		Size:    size,
+		DPI:     dpi,
+		Hinting: h,
+	})
+
+	textBounds := 0
+
+	for _, letter := range text {
+		advance, ok := face.GlyphAdvance(letter)
+		if ok {
+			textBounds += advance.Round()
+		}
+	}
+
+	metrics := face.Metrics()
+
+	fmt.Println(textBounds)
+
+	x := (img.Bounds().Max.X - textBounds) / 2
+
+	var y int
 	switch position {
 	case "top":
-		x, y = 100, 50
+		y = offset
 	case "bottom":
-		x, y = 100, 300
+		y = img.Bounds().Dy() - (offset - metrics.Ascent.Round() + metrics.Descent.Round())
 	default:
 		panic("add Label function called without valid position")
 	}
 
-	foreground := image.White
-
-	size := 32.0
-	dpi := 72.0
-	h := font.HintingNone
-
 	drawer := &font.Drawer{
-		Dst: img,
-		Src: foreground,
-		Face: truetype.NewFace(fontFile, &truetype.Options{
-			Size:    size,
-			DPI:     dpi,
-			Hinting: h,
-		}),
+		Dst:  img,
+		Src:  foreground,
+		Face: face,
 	}
 
 	drawer.Dot = fixed.P(x, y)
