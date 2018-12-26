@@ -69,8 +69,7 @@ func main() {
 		log.Println(reqID, "Top Text:", topText, "Bottom Text:", bottomText)
 		log.Println(reqID, name)
 
-		go drawMemeText(templateImage, "top", topText)
-		go drawMemeText(templateImage, "bottom", bottomText)
+		drawText(templateImage, topText, bottomText)
 
 		jpegOptions := jpeg.Options{Quality: 65}
 		var jpgBuffer bytes.Buffer
@@ -110,19 +109,44 @@ func loadImage(name string) *image.RGBA {
 	return rgbaImage
 }
 
+func drawText(templateImage *image.RGBA, topText string, bottomText string) {
+
+	done := make(chan bool, 2)
+
+	go func(finished chan bool) {
+		drawMemeText(templateImage, "top", topText)
+		finished <- true
+	}(done)
+
+	go func(finished chan bool) {
+		drawMemeText(templateImage, "bottom", bottomText)
+		finished <- true
+	}(done)
+
+	<-done
+}
+
+type FontFaceOptions struct {
+	Offset  int
+	Size    float64
+	DPI     float64
+	Hinting font.Hinting
+}
+
 func drawMemeText(img *image.RGBA, position string, text string) {
-	offset := 75
-	size := 42.0
-	dpi := 72.0
+	fontOptions := &FontFaceOptions{
+		Offset:  75,
+		Size:    42.0,
+		DPI:     72.0,
+		Hinting: font.HintingNone,
+	}
 
 	foreground := image.White
 
-	h := font.HintingNone
-
 	face := truetype.NewFace(fontFile, &truetype.Options{
-		Size:    size,
-		DPI:     dpi,
-		Hinting: h,
+		Size:    fontOptions.Size,
+		DPI:     fontOptions.DPI,
+		Hinting: fontOptions.Hinting,
 	})
 
 	textBounds := 0
@@ -141,9 +165,9 @@ func drawMemeText(img *image.RGBA, position string, text string) {
 	var y int
 	switch position {
 	case "top":
-		y = offset
+		y = fontOptions.Offset
 	case "bottom":
-		y = img.Bounds().Dy() - (offset - metrics.Ascent.Round() + metrics.Descent.Round())
+		y = img.Bounds().Dy() - (fontOptions.Offset - metrics.Ascent.Round() + metrics.Descent.Round())
 	default:
 		panic("add Label function called without valid position")
 	}
