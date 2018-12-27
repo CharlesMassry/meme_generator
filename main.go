@@ -218,5 +218,5 @@ func getText(req *http.Request) (string, string) {
 }
 
 func convertToTitle(str string) string {
-	return strings.ToUpper(strings.Replace(str, "_", " ", -1))
+	return strings.ToUpper(str)
 }
