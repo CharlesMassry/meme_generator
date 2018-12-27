@@ -7,20 +7,13 @@ import (
 	"image/jpeg"
 	"io/ioutil"
 	"log"
-	"math"
 	"net/http"
 	"os"
 	"strconv"
 	"strings"
 
-	"github.com/golang/freetype"
-	"github.com/golang/freetype/truetype"
 	uuid "github.com/satori/go.uuid"
-	"golang.org/x/image/font"
-	"golang.org/x/image/math/fixed"
 )
-
-var fontFile = loadFont("./font.ttf")
 
 func main() {
 	var PORT = os.Getenv("PORT")
@@ -108,114 +101,6 @@ func loadImage(name string) *image.RGBA {
 	draw.Draw(rgbaImage, rgbaImage.Bounds(), templateImage, bounds.Min, draw.Src)
 
 	return rgbaImage
-}
-
-func drawText(templateImage *image.RGBA, topText string, bottomText string) {
-
-	done := make(chan bool, 2)
-
-	go func(finished chan bool) {
-		drawMemeText(templateImage, "top", topText)
-		finished <- true
-	}(done)
-
-	go func(finished chan bool) {
-		drawMemeText(templateImage, "bottom", bottomText)
-		finished <- true
-	}(done)
-
-	<-done
-}
-
-type FontFaceOptions struct {
-	Offset  int
-	Size    float64
-	DPI     float64
-	Hinting font.Hinting
-}
-
-func drawMemeText(img *image.RGBA, position string, text string) {
-	fontOptions := &FontFaceOptions{
-		Offset:  75,
-		Size:    42.0,
-		DPI:     72.0,
-		Hinting: font.HintingNone,
-	}
-
-	foreground := image.White
-
-	face := truetype.NewFace(fontFile, &truetype.Options{
-		Size:    fontOptions.Size,
-		DPI:     fontOptions.DPI,
-		Hinting: fontOptions.Hinting,
-	})
-
-	textBounds := 0
-
-	for _, letter := range text {
-		advance, ok := face.GlyphAdvance(letter)
-		if ok {
-			textBounds += advance.Round()
-		}
-	}
-
-	metrics := face.Metrics()
-
-	imageWidth := img.Bounds().Max.X
-
-	if imageWidth < textBounds {
-		splitLines(imageWidth, textBounds, text)
-
-	}
-
-	x := (imageWidth - textBounds) / 2
-
-	var y int
-	switch position {
-	case "top":
-		y = fontOptions.Offset
-	case "bottom":
-		y = img.Bounds().Dy() - (fontOptions.Offset - metrics.Ascent.Round() + metrics.Descent.Round())
-	default:
-		panic("add Label function called without valid position")
-	}
-
-	drawer := &font.Drawer{
-		Dst:  img,
-		Src:  foreground,
-		Face: face,
-	}
-
-	drawer.Dot = fixed.P(x, y)
-
-	drawer.DrawString(text)
-}
-
-func splitLines(imageWidth int, textLength int, text string) []string {
-	words := strings.Split(text, " ")
-
-	amount := int(math.Ceil(float64(imageWidth) / float64(textLength)))
-
-	len(words) / amount
-
-	var lines []string
-
-	return lines
-}
-
-func loadFont(fontfile string) *truetype.Font {
-	fontBytes, err := ioutil.ReadFile(fontfile)
-	if err != nil {
-		panic("error reading the font file")
-	}
-
-	font, err := freetype.ParseFont(fontBytes)
-
-	if err != nil {
-		panic("error parsing the font file")
-	}
-
-	return font
 }
 
 func handleNotFound(reqID uuid.UUID, url string, templateNames map[string]bool, w http.ResponseWriter) {
