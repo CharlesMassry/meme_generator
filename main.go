@@ -111,19 +111,19 @@ func loadImage(name string) *image.RGBA {
 
 func drawText(templateImage *image.RGBA, topText string, bottomText string) {
 
-	done := make(chan bool, 2)
+	// done := make(chan bool, 2)
 
-	go func(finished chan bool) {
-		drawMemeText(templateImage, "top", topText)
-		finished <- true
-	}(done)
+	// go func(finished chan bool) {
+	drawMemeText(templateImage, "top", topText)
+	// finished <- true
+	// }(done)
 
-	go func(finished chan bool) {
-		drawMemeText(templateImage, "bottom", bottomText)
-		finished <- true
-	}(done)
+	// go func(finished chan bool) {
+	drawMemeText(templateImage, "bottom", bottomText)
+	// finished <- true
+	// }(done)
 
-	<-done
+	// <-done
 }
 
 type FontFaceOptions struct {
