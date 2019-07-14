@@ -15,17 +15,29 @@ import (
 	"github.com/golang/freetype"
 	"github.com/golang/freetype/truetype"
 	uuid "github.com/satori/go.uuid"
+	"github.com/valyala/fasthttp"
 	"golang.org/x/image/font"
 	"golang.org/x/image/math/fixed"
 )
 
 var fontFile = loadFont("./font.ttf")
+var TEMPLATES = templates()
 
 func main() {
 	var PORT = os.Getenv("PORT")
+	if PORT == "" {
+		PORT = "8081"
+	}
 
-	var TEMPLATES = map[string]bool{}
+	if len(TEMPLATES) == 0 {
+		panic("can't start server with no meme templates")
+	}
+	log.Println("Listening on Port", PORT)
+	log.Fatal(fasthttp.ListenAndServe(":"+PORT, server))
+}
 
+func templates() map[string]bool {
+	var templates = make(map[string]bool)
 	files, err := ioutil.ReadDir("./memes")
 
 	if err != nil {
@@ -36,56 +48,79 @@ func main() {
 		filename := fileInfo.Name()
 		if strings.HasSuffix(filename, ".jpg") {
 			memename := strings.TrimSuffix(filename, ".jpg")
-			TEMPLATES[memename] = true
+			templates[memename] = true
 		}
 	}
 
-	if len(TEMPLATES) == 0 {
-		panic("can't start server with no meme templates")
+	return templates
+
+}
+
+func server(ctx *fasthttp.RequestCtx) {
+	path := string(ctx.Path())
+	queryArgs := ctx.QueryArgs()
+
+	bottomText := string(queryArgs.Peek("bottom_text"))
+	topText := string(queryArgs.Peek("top_text"))
+
+	templateName := strings.TrimPrefix(path, "/")
+
+	switch {
+	case path == "/favicon.ico":
+		faviconHandlerFunc(ctx)
+	case TEMPLATES[templateName] == true && topText != "" && bottomText != "":
+		mainHandlerFunc(ctx)
+	default:
+		notFoundFunc(ctx)
+	}
+}
+
+func mainHandlerFunc(ctx *fasthttp.RequestCtx) {
+	reqID, err := uuid.NewV4()
+	if err != nil {
+		panic("error creating uuid")
 	}
 
-	http.HandleFunc("/favicon.ico", func(w http.ResponseWriter, req *http.Request) {
-		w.WriteHeader(http.StatusNotFound)
-	})
-	http.HandleFunc("/", func(w http.ResponseWriter, req *http.Request) {
-		reqID, err := uuid.NewV4()
-		if err != nil {
-			panic("error creating uuid")
-		}
+	log.Println(reqID, ctx.RemoteIP)
 
-		log.Println(reqID, req.RemoteAddr)
+	name := strings.TrimPrefix(string(ctx.Path()), "/")
 
-		name := strings.TrimPrefix(req.URL.Path, "/")
-		topText, bottomText := getText(req)
-		_, ok := TEMPLATES[name]
+	templateImage := loadImage(name)
+	queryArgs := ctx.QueryArgs()
+	topText := string(queryArgs.Peek("top_text"))
+	bottomText := string(queryArgs.Peek("bottom_text"))
+	log.Println(reqID, "Top Text:", topText, "Bottom Text:", bottomText)
+	log.Println(reqID, name)
 
-		if ok == false && (topText == "" || bottomText == "") {
-			handleNotFound(reqID, req.URL.String(), TEMPLATES, w)
-			return
-		}
+	drawText(templateImage, topText, bottomText)
 
-		templateImage := loadImage(name)
+	jpegOptions := jpeg.Options{Quality: 65}
+	var jpgBuffer bytes.Buffer
+	jpeg.Encode(&jpgBuffer, templateImage, &jpegOptions)
 
-		log.Println(reqID, "Top Text:", topText, "Bottom Text:", bottomText)
-		log.Println(reqID, name)
+	jpgBytes := jpgBuffer.Bytes()
 
-		drawText(templateImage, topText, bottomText)
+	memeLength := len(jpgBytes)
 
-		jpegOptions := jpeg.Options{Quality: 65}
-		var jpgBuffer bytes.Buffer
-		jpeg.Encode(&jpgBuffer, templateImage, &jpegOptions)
+	log.Println(reqID, "Generated Meme, length:", memeLength)
+	ctx.SetContentType("image/jpeg")
+	ctx.Response.Header.Set("Content-Length", strconv.Itoa(memeLength))
+	ctx.SetBody(jpgBytes)
+}
 
-		jpgBytes := jpgBuffer.Bytes()
+func faviconHandlerFunc(ctx *fasthttp.RequestCtx) {
+	ctx.SetStatusCode(fasthttp.StatusNotFound)
+}
 
-		memeLength := len(jpgBytes)
+func notFoundFunc(ctx *fasthttp.RequestCtx) {
+	responseString := "Valid Template Names:\n"
 
-		log.Println(reqID, "Generated Meme, length:", memeLength)
-		w.Header().Set("Content-Type", "image/jpeg")
-		w.Header().Set("Content-Length", strconv.Itoa(memeLength))
-		w.Write(jpgBytes)
-	})
-	log.Println("Listening on Port", PORT)
-	log.Fatal(http.ListenAndServe(":"+PORT, nil))
+	for templateName, _ := range TEMPLATES {
+		responseString += templateName + "\n"
+	}
+
+	ctx.SetStatusCode(fasthttp.StatusNotFound)
+	ctx.SetBody([]byte(responseString))
 }
 
 func loadImage(name string) *image.RGBA {
@@ -201,13 +236,7 @@ func loadFont(fontfile string) *truetype.Font {
 func handleNotFound(reqID uuid.UUID, url string, templateNames map[string]bool, w http.ResponseWriter) {
 	log.Println(reqID, "404", url)
 	w.WriteHeader(http.StatusNotFound)
-	responseString := "Valid Template Names:\n"
 
-	for templateName := range templateNames {
-		responseString += templateName + "\n"
-	}
-
-	w.Write([]byte(responseString))
 }
 
 func getText(req *http.Request) (string, string) {
