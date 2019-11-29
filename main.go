@@ -11,7 +11,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
-
+	"html/template"
 	"github.com/golang/freetype"
 	"github.com/golang/freetype/truetype"
 	uuid "github.com/satori/go.uuid"
@@ -71,6 +71,7 @@ func server(ctx *fasthttp.RequestCtx) {
 	case TEMPLATES[templateName] == true && topText != "" && bottomText != "":
 		mainHandlerFunc(ctx)
 	default:
+		log.Println("404 Not found", path, string(queryArgs.QueryString()))
 		notFoundFunc(ctx)
 	}
 }
@@ -81,7 +82,7 @@ func mainHandlerFunc(ctx *fasthttp.RequestCtx) {
 		panic("error creating uuid")
 	}
 
-	log.Println(reqID, ctx.RemoteIP)
+	log.Println(reqID, ctx.RemoteIP())
 
 	name := strings.TrimPrefix(string(ctx.Path()), "/")
 
@@ -112,15 +113,43 @@ func faviconHandlerFunc(ctx *fasthttp.RequestCtx) {
 	ctx.SetStatusCode(fasthttp.StatusNotFound)
 }
 
+type Templates struct {
+	Names []string
+	FirstTemplate string
+}
+
 func notFoundFunc(ctx *fasthttp.RequestCtx) {
-	responseString := "Valid Template Names:\n"
+	templateNames := make([]string, 0, len(TEMPLATES))
 
 	for templateName, _ := range TEMPLATES {
-		responseString += templateName + "\n"
+		templateNames = append(templateNames, templateName)
 	}
 
+	templates := Templates{
+		Names: templateNames,
+		FirstTemplate: templateNames[0],
+	}
+
+	homePageTemplate, err := ioutil.ReadFile("./index.html")
+
+	if err != nil {
+		panic("couldn't read index.html")
+	}
+
+	tmpl, err := template.New("name").Parse(string(homePageTemplate))
+
+
+	if err != nil {
+		panic("couldn't create template")
+	}
+
+	var buf bytes.Buffer
+
+	tmpl.Execute(&buf, templates)
+
+	ctx.SetContentType("text/html")
 	ctx.SetStatusCode(fasthttp.StatusNotFound)
-	ctx.SetBody([]byte(responseString))
+	ctx.SetBody(buf.Bytes())
 }
 
 func loadImage(name string) *image.RGBA {
