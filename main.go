@@ -60,20 +60,42 @@ func server(ctx *fasthttp.RequestCtx) {
 	path := string(ctx.Path())
 	queryArgs := ctx.QueryArgs()
 
-	bottomText := string(queryArgs.Peek("bottom_text"))
-	topText := string(queryArgs.Peek("top_text"))
-
 	templateName := strings.TrimPrefix(path, "/")
 
+        bottomText := string(queryArgs.Peek("bottom_text"))
+        topText := string(queryArgs.Peek("top_text"))
+
 	switch {
+        case path == "/":
+                notFoundFunc(ctx)
 	case path == "/favicon.ico":
 		faviconHandlerFunc(ctx)
-	case TEMPLATES[templateName] == true && topText != "" && bottomText != "":
+        case TEMPLATES[templateName] == true && topText == "" && bottomText == "":
+                renderPlainImage(ctx)               
+	case TEMPLATES[templateName] == true:
 		mainHandlerFunc(ctx)
 	default:
 		log.Println("404 Not found", path, string(queryArgs.QueryString()))
 		notFoundFunc(ctx)
 	}
+}
+
+func renderPlainImage(ctx *fasthttp.RequestCtx) {
+        name := strings.TrimPrefix(string(ctx.Path()), "/")
+
+        templateImage := loadImage(name)
+       
+        jpegOptions := jpeg.Options{Quality: 65}
+        var jpgBuffer bytes.Buffer
+        jpeg.Encode(&jpgBuffer, templateImage, &jpegOptions)
+
+        jpgBytes := jpgBuffer.Bytes()
+
+        memeLength := len(jpgBytes)
+
+        ctx.SetContentType("image/jpeg")
+        ctx.Response.Header.Set("Content-Length", strconv.Itoa(memeLength))
+        ctx.SetBody(jpgBytes)
 }
 
 func mainHandlerFunc(ctx *fasthttp.RequestCtx) {

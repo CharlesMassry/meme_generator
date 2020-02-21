@@ -3,13 +3,16 @@
 <p>Meme Generation is a simple site that lets you create memes on the fly with a very simple API. Just provide the template name with a <code>top_text</code> and <code>bottom_text</code></p>
 <p>For example <a href="/{{.FirstTemplate}}?top_text=don%27t%20need%20to%20make%20POST%20requests&bottom_text=if%20you%20use%20this%20meme%20generator">/{{.FirstTemplate}}?top_text=don%27t%20need%20to%20make%20POST%20requests&bottom_text=if%20you%20use%20this%20meme%20generator</a></p>
 
+<img src="/{{.FirstTemplate}}?top_text=don%27t%20need%20to%20make%20POST%20requests&bottom_text=if%20you%20use%20this%20meme%20generator" />
+
 <h4>Available Meme Templates:</h4>
 
-<ul>
+<div>
     {{range .Names}}
-        <li>{{.}}</li>
+        <div>{{.}}</div>
+        <img src="/{{.}}" style="max-width: 300px;"/>
     {{end}}
-</ul>
+</div>
 
 <p>Made with &#128150; in NYC by <a href="https://charliemassry.com">Charlie Massry</a></p>
 <p><a href="https://github.com/CharlesMassry/meme_generator">Source Code on Github</a></p>
